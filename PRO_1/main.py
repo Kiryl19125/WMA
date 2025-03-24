@@ -40,16 +40,26 @@ def make_four_color_mask(hsv):
 
 def mark_object(contours, frame):
     for contour in contours:
-        # Calculate area to filter out small noise
-        area = cv2.contourArea(contour)
-        if area > 10:  # Adjust this threshold as needed
-            x, y, w, h = cv2.boundingRect(contour)
-            cX = x + w // 2
-            cY = y + h // 2
-            # Draw a circle at the center
-            cv2.circle(frame, (cX, cY), 4, (255, 255, 255), -1)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv2.putText(frame, f"x: {x}, y:{y}", (x, y - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        if cv2.contourArea(contour) > 10:
+            M = cv2.moments(contour)
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+                x, y, w, h = cv2.boundingRect(contour)
+                cv2.drawMarker(frame, (int(cx), int(cy)), color=(255, 255, 255), markerType=cv2.MARKER_CROSS, thickness=1)
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
+                cv2.putText(frame, f"x: {x}, y:{y}", (x, y - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    # for contour in contours:
+    #     # Calculate area to filter out small noise
+    #     area = cv2.contourArea(contour)
+    #     if area > 10:  # Adjust this threshold as needed
+    #         x, y, w, h = cv2.boundingRect(contour)
+    #         cX = x + w // 2
+    #         cY = y + h // 2
+    #         # Draw a circle at the center
+    #         cv2.circle(frame, (cX, cY), 4, (255, 255, 255), -1)
+    #         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    #         cv2.putText(frame, f"x: {x}, y:{y}", (x, y - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
 
 if __name__ == '__main__':
@@ -75,7 +85,7 @@ if __name__ == '__main__':
             break
 
         resized_frame = cv2.resize(frame, (width, height)) # resize the frame
-        blured_frame = cv2.GaussianBlur(resized_frame, (9, 9), 0) # troche bluru
+        blured_frame = cv2.GaussianBlur(resized_frame, (13, 13), 0) # troche bluru
 
 
         hsv = cv2.cvtColor(blured_frame, cv2.COLOR_BGR2HSV) # Convert BGR to HSV
@@ -86,7 +96,7 @@ if __name__ == '__main__':
 
         marked_frame = resized_frame.copy() # Create a copy for drawing markers
 
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) # Find contours in the mask
+        contours, _ = cv2.findContours(mask, 1, 2) # Find contours in the mask
         mark_object(contours, marked_frame)
 
         out.write(marked_frame)
