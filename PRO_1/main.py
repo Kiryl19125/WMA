@@ -27,12 +27,22 @@ def make_mask_for_red(hsv):
 
     return mask1 + mask2
 
+def make_four_color_mask(hsv):
+    red_mask1 = cv2.inRange(hsv, color_ranges["red"]["lower1"], color_ranges["red"]["upper1"])
+    red_mask2 = cv2.inRange(hsv, color_ranges["red"]["lower2"], color_ranges["red"]["upper2"])
+    green_mask = cv2.inRange(hsv, color_ranges["green"]["lower"], color_ranges["green"]["upper"])
+    blue_mask = cv2.inRange(hsv, color_ranges["blue"]["lower"], color_ranges["blue"]["upper"])
+    yellow_mask = cv2.inRange(hsv, color_ranges["yellow"]["lower"], color_ranges["yellow"]["upper"])
+
+    return red_mask1 + red_mask2 + green_mask + blue_mask + yellow_mask
+
+
 
 def mark_object(contours, frame):
     for contour in contours:
         # Calculate area to filter out small noise
         area = cv2.contourArea(contour)
-        if area > 200:  # Adjust this threshold as needed
+        if area > 10:  # Adjust this threshold as needed
             x, y, w, h = cv2.boundingRect(contour)
             cX = x + w // 2
             cY = y + h // 2
@@ -43,8 +53,9 @@ def mark_object(contours, frame):
 
 
 if __name__ == '__main__':
-    cap = cv2.VideoCapture("PRO_1/resources/movingball.mp4")
+    # cap = cv2.VideoCapture("PRO_1/resources/movingball.mp4")
     # cap = cv2.VideoCapture("PRO_1/resources/IMG_1967.MOV")
+    cap = cv2.VideoCapture("PRO_1/resources/rgb_ball_720.mp4")
     # cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         print("Error opening video file")
@@ -68,7 +79,7 @@ if __name__ == '__main__':
 
 
         hsv = cv2.cvtColor(blured_frame, cv2.COLOR_BGR2HSV) # Convert BGR to HSV
-        mask = make_mask_for_red(hsv)
+        mask = make_four_color_mask(hsv)
         res = cv2.bitwise_and(blured_frame, blured_frame, mask=mask) # Bitwise-AND mask and original image
 
         closing = cv2.morphologyEx(res, cv2.MORPH_CLOSE, kernel) # zamknięcie aby odfiltrować otwory w kuli
