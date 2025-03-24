@@ -49,17 +49,6 @@ def mark_object(contours, frame):
                 cv2.drawMarker(frame, (int(cx), int(cy)), color=(255, 255, 255), markerType=cv2.MARKER_CROSS, thickness=1)
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
                 cv2.putText(frame, f"x: {x}, y:{y}", (x, y - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-    # for contour in contours:
-    #     # Calculate area to filter out small noise
-    #     area = cv2.contourArea(contour)
-    #     if area > 10:  # Adjust this threshold as needed
-    #         x, y, w, h = cv2.boundingRect(contour)
-    #         cX = x + w // 2
-    #         cY = y + h // 2
-    #         # Draw a circle at the center
-    #         cv2.circle(frame, (cX, cY), 4, (255, 255, 255), -1)
-    #         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-    #         cv2.putText(frame, f"x: {x}, y:{y}", (x, y - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
 
 if __name__ == '__main__':
