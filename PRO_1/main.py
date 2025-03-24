@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
 
-width = 640
-height = 480
+width = 1280
+height = 720
 
 kernel = np.ones((9, 9), np.uint8) # for closing
 
@@ -35,7 +35,6 @@ def make_four_color_mask(hsv):
     yellow_mask = cv2.inRange(hsv, color_ranges["yellow"]["lower"], color_ranges["yellow"]["upper"])
 
     return red_mask1 + red_mask2 + green_mask + blue_mask + yellow_mask
-
 
 
 def mark_object(contours, frame):
@@ -76,7 +75,6 @@ if __name__ == '__main__':
         resized_frame = cv2.resize(frame, (width, height)) # resize the frame
         blured_frame = cv2.GaussianBlur(resized_frame, (13, 13), 0) # troche bluru
 
-
         hsv = cv2.cvtColor(blured_frame, cv2.COLOR_BGR2HSV) # Convert BGR to HSV
         mask = make_four_color_mask(hsv)
         res = cv2.bitwise_and(blured_frame, blured_frame, mask=mask) # Bitwise-AND mask and original image
@@ -94,7 +92,7 @@ if __name__ == '__main__':
         cv2.imshow("Original", resized_frame)
         cv2.imshow("Object detection", marked_frame)
         cv2.imshow('Mask', closing)
-        if cv2.waitKey(25) & 0xFF == ord('q'): # Press 'q' to exit
+        if cv2.waitKey(25) == 27: # Press 'q' to exit
             break
     cap.release() # Release the video capture object and close all windows
     cv2.destroyAllWindows()
