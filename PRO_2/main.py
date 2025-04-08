@@ -139,10 +139,10 @@ def on_change(x):
     pass
 
 
-def detect_orange_box(image):
+def detect_orange_box(image) -> tuple[int, int, int, int]:
     """Detect orange box in the given image"""
-    if image is None:
-        return None, "No image provided"
+    # if image is None:
+    #     return None, "No image provided"
 
     # Create a copy for displaying results
     output_image = image.copy()
@@ -167,8 +167,8 @@ def detect_orange_box(image):
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     # If no contours found
-    if not contours:
-        return output_image, "No orange box detected"
+    # if not contours:
+    #     return None
 
     # Find the largest contour (assuming it's the orange box)
     largest_contour = max(contours, key=cv2.contourArea)
@@ -177,31 +177,31 @@ def detect_orange_box(image):
     x, y, w, h = cv2.boundingRect(largest_contour)
 
     # Draw the bounding rectangle
-    cv2.rectangle(output_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    # cv2.rectangle(output_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
     # Draw the actual contour
-    cv2.drawContours(output_image, [largest_contour], 0, (255, 0, 0), 2)
+    # cv2.drawContours(output_image, [largest_contour], 0, (255, 0, 0), 2)
 
     # Draw corner points for better visualization
-    corners = np.array([
-        [x, y],  # Top-left
-        [x + w, y],  # Top-right
-        [x + w, y + h],  # Bottom-right
-        [x, y + h]  # Bottom-left
-    ])
+    # corners = np.array([
+    #     [x, y],  # Top-left
+    #     [x + w, y],  # Top-right
+    #     [x + w, y + h],  # Bottom-right
+    #     [x, y + h]  # Bottom-left
+    # ])
+    #
+    # for corner in corners:
+    #     cv2.circle(output_image, tuple(corner), 5, (0, 0, 255), -1)
+    #
+    # # Calculate dimensions and perimeter
+    # perimeter = cv2.arcLength(largest_contour, True)
+    # area = cv2.contourArea(largest_contour)
+    #
+    # result_text = f"Orange box dimensions: {w}x{h} pixels\n"
+    # result_text += f"Perimeter: {perimeter:.2f} pixels\n"
+    # result_text += f"Area: {area:.2f} square pixels"
 
-    for corner in corners:
-        cv2.circle(output_image, tuple(corner), 5, (0, 0, 255), -1)
-
-    # Calculate dimensions and perimeter
-    perimeter = cv2.arcLength(largest_contour, True)
-    area = cv2.contourArea(largest_contour)
-
-    result_text = f"Orange box dimensions: {w}x{h} pixels\n"
-    result_text += f"Perimeter: {perimeter:.2f} pixels\n"
-    result_text += f"Area: {area:.2f} square pixels"
-
-    return output_image, result_text, mask, largest_contour
+    return x, y, w, h
 
 
 def main():
@@ -217,7 +217,7 @@ def main():
     cv2.createTrackbar('blur k size', 'frame', 1, 100, on_change)  # Initial value 10, max 30
 
     # Try to load the image
-    image_path = "../PRO_2/pliki/tray1.jpg"
+    image_path = "../PRO_2/pliki/tray2.jpg"
     original_image = cv2.imread(image_path)
 
     if original_image is None:
@@ -235,9 +235,9 @@ def main():
     # Resize the image while maintaining aspect ratio
     resized_image = cv2.resize(original_image, (width, height))
 
-    print("Controls:")
-    print("- Press 'o' to toggle orange box detection")
-    print("- Press any other key to exit")
+    # print("Controls:")
+    # print("- Press 'o' to toggle orange box detection")
+    # print("- Press any other key to exit")
 
     # Main processing loop
     while True:
@@ -259,62 +259,79 @@ def main():
         blured_frame = cv2.GaussianBlur(display_image, (ksize, ksize), 0)  # troche bluru
         gray_frame = cv2.cvtColor(blured_frame, cv2.COLOR_BGR2GRAY)  # Changed RGB to BGR to match OpenCV format
 
-        # Process based on the current mode
-        if show_orange_box_detection:
-            # Orange box detection mode
-            processed_image, result_string, mask, _ = detect_orange_box(display_image)
+        x, y, w, h = detect_orange_box(display_image)
+        cv2.rectangle(display_image, (x, y), (x+w, y+h), (0, 255, 0), 1)
+        try:
+            # Apply HoughCircles
+            circles = cv2.HoughCircles(gray_frame, cv2.HOUGH_GRADIENT,
+                                       dp=high_color / 10.0,  # Scaling to get a reasonable dp value
+                                       minDist=low_color,
+                                       param1=50, param2=30,
+                                       minRadius=17, maxRadius=26)
 
-            # Display result if changed
+            # Only process if circles were found
+            result_string = "No circles found"
+            sum_inside_box: float = 0.0
+            sum_outside_box: float = 0.0
+            counter_5gr: int = 0
+            counter_5zl: int = 0
+            sum_area_5zl: int = 0
+            sum_area_5gr: int = 0
+            if circles is not None:
+                circles = np.uint16(np.around(circles))
+
+                # Draw circles on the colored image
+                counter: int = 1
+                result_string = f"Found {len(circles[0])} circles"
+                for i in circles[0, :]:
+                    cv2.circle(display_image, center=(i[0], i[1]), radius=i[2], color=(0, 255, 0), thickness=1)
+                    if 17 <= i[2] <= 22:
+                        counter_5gr += 1
+                        area = math.pi * i[2]**2
+                        sum_area_5gr += area
+                        cv2.drawMarker(display_image, position=(i[0], i[1]), color=(255, 0, 0), thickness=2,
+                                       markerType=cv2.MARKER_CROSS)
+                        result_string += f"\nCircle No: {counter} is 5gr, area = {round(area, 2)}"
+                        if x < i[0] < x + w and y < i[1] < y + h:
+                            result_string += ", inside the box"
+                            sum_inside_box += 0.05
+                        else:
+                            result_string += ", outside the box"
+                            sum_outside_box += 0.05
+                    elif 23 <= i[2] <= 26:
+                        counter_5zl += 1
+                        area = math.pi * i[2]**2
+                        sum_area_5zl += area
+                        cv2.drawMarker(display_image, position=(i[0], i[1]), color=(0, 0, 255), thickness=2,
+                                       markerType=cv2.MARKER_CROSS)
+                        result_string += f"\nCircle No: {counter} is 5zl, area = {round(area, 2)}"
+                        if x < i[0] < x + w and y < i[1] < y + h:
+                            result_string += ", inside the box"
+                            sum_inside_box += 5.0
+                        else:
+                            result_string += ", outside the box"
+                            sum_outside_box += 5.0
+                    cv2.putText(display_image, f"{counter}", org=(i[0] + 20, i[1] + 20),
+                                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                                fontScale=0.5, color=(0, 0, 0), thickness=2)
+                    counter += 1
+
+            result_string += f"\nSum inside the box: {round(sum_inside_box, 2)}, outside the box: {round(sum_outside_box, 2)}"
+            result_string += f"\nBox area: {round(w * h, 2)}"
+            result_string += f"\nBox area/5zł area: {(w*h)/(sum_area_5zl/counter_5zl)}"
+            result_string += f"\nBox area/5gr area: {round((w*h)/(sum_area_5gr/counter_5gr), 2)}"
+            result_string += f"\n5gr counter: {counter_5gr}, 5zł counter: {counter_5zl}"
             if result_string != previous_result_string:
                 print(result_string)
                 previous_result_string = result_string
 
-            # Show the processed image and mask
-            cv2.imshow("frame", processed_image)
-            cv2.imshow("working frame", mask)
-        else:
-            # Circle detection mode (original functionality)
-            try:
-                # Apply HoughCircles
-                circles = cv2.HoughCircles(gray_frame, cv2.HOUGH_GRADIENT,
-                                           dp=high_color / 10.0,  # Scaling to get a reasonable dp value
-                                           minDist=low_color,
-                                           param1=50, param2=30,
-                                           minRadius=17, maxRadius=26)
 
-                # Only process if circles were found
-                result_string = "No circles found"
-                if circles is not None:
-                    circles = np.uint16(np.around(circles))
+        except Exception as e:
+            print(f"Error detecting circles: {e}")
 
-                    # Draw circles on the colored image
-                    counter: int = 1
-                    result_string = f"Found {len(circles[0])} circles"
-                    for i in circles[0, :]:
-                        cv2.circle(display_image, center=(i[0], i[1]), radius=i[2], color=(0, 255, 0), thickness=1)
-                        if 17 <= i[2] <= 22:
-                            cv2.drawMarker(display_image, position=(i[0], i[1]), color=(255, 0, 0), thickness=2,
-                                           markerType=cv2.MARKER_CROSS)
-                            result_string += f"\nCircle No: {counter} is 5gr, area = {round(math.pi * i[2] ** 2, 2)}"
-                        elif 23 <= i[2] <= 26:
-                            cv2.drawMarker(display_image, position=(i[0], i[1]), color=(0, 0, 255), thickness=2,
-                                           markerType=cv2.MARKER_CROSS)
-                            result_string += f"\nCircle No: {counter} is 5zl, area = {round(math.pi * i[2] ** 2, 2)}"
-                        cv2.putText(display_image, f"{counter}", org=(i[0] + 20, i[1] + 20),
-                                    fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                                    fontScale=0.5, color=(0, 0, 0), thickness=2)
-                        counter += 1
-
-                if result_string != previous_result_string:
-                    print(result_string)
-                    previous_result_string = result_string
-
-            except Exception as e:
-                print(f"Error detecting circles: {e}")
-
-            # Display the processed image
-            cv2.imshow("frame", display_image)
-            cv2.imshow("working frame", gray_frame)
+        # Display the processed image
+        cv2.imshow("frame", display_image)
+        cv2.imshow("working frame", gray_frame)
 
         # Wait for key press with a short timeout
         key = cv2.waitKey(100) & 0xFF
