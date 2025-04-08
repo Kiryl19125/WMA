@@ -4,11 +4,11 @@ import numpy as np
 width = 1280
 height = 720
 
-kernel = np.ones((9, 9), np.uint8) # for closing
+kernel = np.ones((13, 13), np.uint8) # for closing
 
 color_ranges = {
-    'red': {'lower1': np.array([0, 100, 100]), 'upper1': np.array([10, 255, 255]),
-            'lower2': np.array([160, 100, 100]), 'upper2': np.array([179, 255, 255])},
+    'red': {'lower1': np.array([0, 140, 140]), 'upper1': np.array([5, 255, 255]),
+            'lower2': np.array([160, 140, 140]), 'upper2': np.array([179, 255, 255])},
     'green': {'lower': np.array([35, 100, 100]), 'upper': np.array([85, 255, 255])},
     'blue': {'lower': np.array([100, 100, 100]), 'upper': np.array([130, 255, 255])},
     'yellow': {'lower': np.array([20, 100, 100]), 'upper': np.array([35, 255, 255])},
