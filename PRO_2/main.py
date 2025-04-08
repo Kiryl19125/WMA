@@ -130,6 +130,7 @@ import math
 resized_image = None
 original_image = None
 previous_result_string: str = ""
+show_orange_box_detection = False  # Flag to toggle between circle and box detection
 
 
 def on_change(x):
@@ -138,11 +139,77 @@ def on_change(x):
     pass
 
 
-def main():
-    global resized_image, original_image, previous_result_string
+def detect_orange_box(image):
+    """Detect orange box in the given image"""
+    if image is None:
+        return None, "No image provided"
 
-    # First create the window before adding any trackbars
+    # Create a copy for displaying results
+    output_image = image.copy()
+
+    # Convert to HSV color space for better color segmentation
+    hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    # Define range for orange color in HSV
+    # These values may need adjustment based on lighting conditions
+    lower_orange = np.array([5, 100, 150])
+    upper_orange = np.array([25, 255, 255])
+
+    # Create a mask for the orange color
+    mask = cv2.inRange(hsv_image, lower_orange, upper_orange)
+
+    # Apply morphological operations to clean up the mask
+    kernel = np.ones((5, 5), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+    # Find contours in the mask
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # If no contours found
+    if not contours:
+        return output_image, "No orange box detected"
+
+    # Find the largest contour (assuming it's the orange box)
+    largest_contour = max(contours, key=cv2.contourArea)
+
+    # Get the bounding rectangle
+    x, y, w, h = cv2.boundingRect(largest_contour)
+
+    # Draw the bounding rectangle
+    cv2.rectangle(output_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+    # Draw the actual contour
+    cv2.drawContours(output_image, [largest_contour], 0, (255, 0, 0), 2)
+
+    # Draw corner points for better visualization
+    corners = np.array([
+        [x, y],  # Top-left
+        [x + w, y],  # Top-right
+        [x + w, y + h],  # Bottom-right
+        [x, y + h]  # Bottom-left
+    ])
+
+    for corner in corners:
+        cv2.circle(output_image, tuple(corner), 5, (0, 0, 255), -1)
+
+    # Calculate dimensions and perimeter
+    perimeter = cv2.arcLength(largest_contour, True)
+    area = cv2.contourArea(largest_contour)
+
+    result_text = f"Orange box dimensions: {w}x{h} pixels\n"
+    result_text += f"Perimeter: {perimeter:.2f} pixels\n"
+    result_text += f"Area: {area:.2f} square pixels"
+
+    return output_image, result_text, mask, largest_contour
+
+
+def main():
+    global resized_image, original_image, previous_result_string, show_orange_box_detection
+
+    # First create the windows before adding any trackbars
     cv2.namedWindow('frame')
+    cv2.namedWindow('working frame')
 
     # Create trackbars - using 'frame' as the window name to match your imshow
     cv2.createTrackbar('low', 'frame', 1, 255, on_change)  # Initial value 30, max 100
@@ -168,6 +235,10 @@ def main():
     # Resize the image while maintaining aspect ratio
     resized_image = cv2.resize(original_image, (width, height))
 
+    print("Controls:")
+    print("- Press 'o' to toggle orange box detection")
+    print("- Press any other key to exit")
+
     # Main processing loop
     while True:
         # Get current positions of trackbars
@@ -188,49 +259,72 @@ def main():
         blured_frame = cv2.GaussianBlur(display_image, (ksize, ksize), 0)  # troche bluru
         gray_frame = cv2.cvtColor(blured_frame, cv2.COLOR_BGR2GRAY)  # Changed RGB to BGR to match OpenCV format
 
-        try:
-            # Apply HoughCircles
-            # circles = cv2.HoughCircles(gray_frame, cv2.HOUGH_GRADIENT, high_color, low_color)
-            circles = cv2.HoughCircles(gray_frame, cv2.HOUGH_GRADIENT,
-                                       dp=high_color / 10.0,  # Scaling to get a reasonable dp value
-                                       minDist=low_color,
-                                       param1=50, param2=30,
-                                       minRadius=17, maxRadius=26)
+        # Process based on the current mode
+        if show_orange_box_detection:
+            # Orange box detection mode
+            processed_image, result_string, mask, _ = detect_orange_box(display_image)
 
-            # Only process if circles were found
-            if circles is not None:
-                circles = np.uint16(np.around(circles))
-                # print(f"Found {len(circles[0])} circles")
+            # Display result if changed
+            if result_string != previous_result_string:
+                print(result_string)
+                previous_result_string = result_string
 
-                # Draw circles on the colored image
-                counter: int = 1
-                result_string: str = f"Found {len(circles[0])} circles"
-                for i in circles[0, :]:
-                    cv2.circle(display_image, center = (i[0], i[1]), radius=i[2], color = (0, 255, 0), thickness=1)
-                    if 17 <= i[2] <= 22:
-                        cv2.drawMarker(display_image, position=(i[0], i[1]), color=(255, 0, 0), thickness=2,
-                                       markerType=cv2.MARKER_CROSS)
-                        result_string += f"\nCircle No: {counter} is 5gr, area = {round(math.pi * i[2]**2, 2)}"
-                    elif 23 <= i[2] <= 26:
-                        cv2.drawMarker(display_image, position=(i[0], i[1]), color=(0, 0, 255), thickness=2,
-                                       markerType=cv2.MARKER_CROSS)
-                        result_string += f"\nCircle No: {counter} is 5zl, area = {round(math.pi * i[2]**2, 2)}"
-                    cv2.putText(display_image, f"{counter}", org=(i[0]+20, i[1]+20), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                                fontScale=0.5, color=(0, 0, 0), thickness=2)
-                    counter += 1
+            # Show the processed image and mask
+            cv2.imshow("frame", processed_image)
+            cv2.imshow("working frame", mask)
+        else:
+            # Circle detection mode (original functionality)
+            try:
+                # Apply HoughCircles
+                circles = cv2.HoughCircles(gray_frame, cv2.HOUGH_GRADIENT,
+                                           dp=high_color / 10.0,  # Scaling to get a reasonable dp value
+                                           minDist=low_color,
+                                           param1=50, param2=30,
+                                           minRadius=17, maxRadius=26)
+
+                # Only process if circles were found
+                result_string = "No circles found"
+                if circles is not None:
+                    circles = np.uint16(np.around(circles))
+
+                    # Draw circles on the colored image
+                    counter: int = 1
+                    result_string = f"Found {len(circles[0])} circles"
+                    for i in circles[0, :]:
+                        cv2.circle(display_image, center=(i[0], i[1]), radius=i[2], color=(0, 255, 0), thickness=1)
+                        if 17 <= i[2] <= 22:
+                            cv2.drawMarker(display_image, position=(i[0], i[1]), color=(255, 0, 0), thickness=2,
+                                           markerType=cv2.MARKER_CROSS)
+                            result_string += f"\nCircle No: {counter} is 5gr, area = {round(math.pi * i[2] ** 2, 2)}"
+                        elif 23 <= i[2] <= 26:
+                            cv2.drawMarker(display_image, position=(i[0], i[1]), color=(0, 0, 255), thickness=2,
+                                           markerType=cv2.MARKER_CROSS)
+                            result_string += f"\nCircle No: {counter} is 5zl, area = {round(math.pi * i[2] ** 2, 2)}"
+                        cv2.putText(display_image, f"{counter}", org=(i[0] + 20, i[1] + 20),
+                                    fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                                    fontScale=0.5, color=(0, 0, 0), thickness=2)
+                        counter += 1
+
                 if result_string != previous_result_string:
                     print(result_string)
-                previous_result_string = result_string
-        except Exception as e:
-            print(f"Error detecting circles: {e}")
+                    previous_result_string = result_string
 
-        # Display the processed image
-        cv2.imshow("frame", display_image)
-        cv2.imshow("working frame", gray_frame)
+            except Exception as e:
+                print(f"Error detecting circles: {e}")
 
-        # Break the loop if the user presses a key
+            # Display the processed image
+            cv2.imshow("frame", display_image)
+            cv2.imshow("working frame", gray_frame)
+
+        # Wait for key press with a short timeout
         key = cv2.waitKey(100) & 0xFF
-        if key != 255:  # Any key press
+
+        # Process key presses
+        if key == ord('o'):  # Toggle orange box detection mode
+            show_orange_box_detection = not show_orange_box_detection
+            previous_result_string = ""  # Reset previous result string to force update
+            print(f"Orange box detection: {'ON' if show_orange_box_detection else 'OFF'}")
+        elif key != 255:  # Any other key press
             break
 
     # Wait for user to close window
